@@ -20,4 +20,13 @@ public class BotMessage {
     public BotUser getToUser() {
         return this.toUser;
     }
+
+    @Override
+    public String toString() {
+        return "BotMessage{" +
+                "msg='" + msg + '\'' +
+                ", fromUser=" + fromUser +
+                ", toUser=" + toUser +
+                '}';
+    }
 }

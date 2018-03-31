@@ -1,53 +1,51 @@
-import com.vk.api.sdk.actions.LongPoll;
 import com.vk.api.sdk.client.VkApiClient;
 import com.vk.api.sdk.client.actors.GroupActor;
 import com.vk.api.sdk.exceptions.ApiException;
 import com.vk.api.sdk.exceptions.ClientException;
 import com.vk.api.sdk.httpclient.HttpTransportClient;
-import com.vk.api.sdk.objects.groups.responses.GetLongPollServerResponse;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class VkGroupBot implements Bot {
-    private Integer appId;
-    private String appSecret;
-    private String redirectUri;
     private Integer groupId;
     private String accessToken;
     private VkApiClient vk;
     private GroupActor groupActor;
     private boolean isConnected;
+    private VkGroupLongPoll longPoll;
+    private List<VkGroupEvent> lastEvents;
 
-    public VkGroupBot(Integer appId, String appSecret, String redirectUri, Integer groupId, String accessToken) {
-        this.appId = appId;
-        this.appSecret = appSecret;
-        this.redirectUri = redirectUri;
+    public VkGroupBot(Integer groupId, String accessToken) {
         this.groupId = groupId;
         this.accessToken = accessToken;
+        this.lastEvents = new ArrayList<>();
         connect();
     }
 
     public Integer getGroupId() {
-        return this.groupId;
+        return groupId;
     }
 
     public boolean connect() {
         try {
-            this.vk = new VkApiClient(HttpTransportClient.getInstance());
-            this.groupActor = new GroupActor(groupId, accessToken);
-            this.isConnected = true;
+            vk = new VkApiClient(HttpTransportClient.getInstance());
+            groupActor = new GroupActor(groupId, accessToken);
+            longPoll = new VkGroupLongPoll(groupActor);
+            isConnected = true;
         } catch (Exception e) {
             System.out.println(e);
-            this.isConnected = false;
+            isConnected = false;
         }
         return isConnected;
     }
 
     @Override
     public void sendMessage(BotMessage msg) {
-        if (this.isConnected) {
+        if (isConnected) {
             try {
-                vk.messages().send(this.groupActor).userId(msg.getToUser().getId()).message(msg.getMsg()).execute();
+                vk.messages().send(groupActor).userId(msg.getToUser().getId()).message(msg.getMsg()).execute();
             } catch (ApiException | ClientException e) {
                 e.printStackTrace();
             }
@@ -56,13 +54,45 @@ public class VkGroupBot implements Bot {
 
     @Override
     public List<BotMessage> getUnreadMessages() {
+        loadLastEvents(25);
+        List<BotMessage> result = lastEvents.stream()
+                .filter((event) -> event.getType() == VkGroupEvent.EventType.MESSAGE_NEW)
+                .map((event) -> new BotMessage(event.getText(), event.getUser(), new BotUser(groupId)))
+                .collect(Collectors.toList());
+        lastEvents = lastEvents.stream()
+                .filter((event) -> event.getType() != VkGroupEvent.EventType.MESSAGE_NEW)
+                .collect(Collectors.toList());
+        return result;
+    }
+
+    public List<VkGroupEvent> getNewWallPosts() {
+        loadLastEvents(25);
+        List<VkGroupEvent> result = lastEvents.stream()
+                .filter((event) -> event.getType() == VkGroupEvent.EventType.WALL_POST_NEW)
+                .collect(Collectors.toList());
+        lastEvents = lastEvents.stream()
+                .filter((event) -> event.getType() != VkGroupEvent.EventType.WALL_POST_NEW)
+                .collect(Collectors.toList());
+        return result;
+    }
+
+    public List<VkGroupEvent> getLastEvents() {
+        return lastEvents;
+    }
+
+    public void loadLastEvents(int time) {
         try {
-            GetLongPollServerResponse response = vk.groups().getLongPollServer(groupActor).execute();
-            LongPoll longPoll = new LongPoll(vk);
-            System.out.println(longPoll.getEvents(response.getServer(), response.getKey(), response.getTs()).waitTime(25).execute());
-        } catch (ApiException | ClientException e) {
+            lastEvents.addAll(longPoll.getLastEvents(time));
+        } catch (ClientException | ApiException e) {
             e.printStackTrace();
         }
-        return null;
+    }
+
+    @Override
+    public String toString() {
+        return "VkGroupBot{" +
+                "groupId=" + groupId +
+                ", lastEvents=" + lastEvents +
+                '}';
     }
 }

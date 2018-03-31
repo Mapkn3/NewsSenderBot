@@ -8,4 +8,11 @@ public class BotUser {
     public Integer getId() {
         return this.id;
     }
+
+    @Override
+    public String toString() {
+        return "BotUser{" +
+                "id=" + id +
+                '}';
+    }
 }

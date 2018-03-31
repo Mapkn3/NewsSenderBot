@@ -5,14 +5,11 @@ import java.util.Properties;
 public class Main {
     public static void main(String[] args) {
         Properties properties = loadConfiguration();
-        Integer appId = Integer.valueOf(properties.getProperty("app.id"));
-        String appSecret = properties.getProperty("app.secret");
-        String redirectUri = properties.getProperty("redirect.uri");
         Integer groupId = Integer.valueOf(properties.getProperty("group.id"));
         String accessToken = properties.getProperty("group.access.token");
-        VkGroupBot bot = new VkGroupBot(appId, appSecret, redirectUri, groupId, accessToken);
+        VkGroupBot bot = new VkGroupBot(groupId, accessToken);
         //bot.sendMessage(new BotMessage("Hello!", new BotUser(bot.getGroupId()), new BotUser(64099040)));
-        bot.getUnreadMessages();
+        System.out.println(bot.getUnreadMessages());
     }
     private static Properties loadConfiguration() {
         Properties properties = new Properties();
